@@ -1,0 +1,17 @@
+__pycache__/
+*.conda
+*.egg-info/
+*.egg
+
+*.pyc
+
+.DS_Store         
+Thumbs.db         
+
+
+.idea/           
+.vscode/          
+*.sublime-workspace
+*.sublime-project
+
+*.log
