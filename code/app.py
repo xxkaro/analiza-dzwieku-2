@@ -102,7 +102,7 @@ if uploaded_file is not None:
         fig = go.Figure()
 
         fig.add_trace(go.Scatter(x=time_axis,
-                                y=y,
+                                y=apply_window(y, window_type),
                                 mode='lines', 
                                 name="Przebieg czasowy", 
                                 hovertemplate="<b>Czas:</b> %{x:.3f} s" + "<br>" +

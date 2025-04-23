@@ -16,15 +16,15 @@ def frequency_spectrum(y, sr, window_type='rectangular'):
 
 def apply_window(frame, window_type):
     if window_type == 'rectangular':
-        window = np.ones(len(frame))  # Okno prostokątne
+        window = np.ones(len(frame)) 
     elif window_type == 'triangular':
-        window = np.bartlett(len(frame))  # Okno trójkątne
+        window = np.bartlett(len(frame))  
     elif window_type == 'hamming':
-        window = np.hamming(len(frame))  # Okno Hamming'a
+        window = np.hamming(len(frame))  
     elif window_type == 'hanning':
-        window = np.hanning(len(frame))  # Okno Hanninga
+        window = np.hanning(len(frame))  
     elif window_type == 'blackman':
-        window = np.blackman(len(frame))  # Okno Blackmana
+        window = np.blackman(len(frame)) 
     else:
         raise ValueError(f"Nieznany typ okna: {window_type}")
     
@@ -122,14 +122,12 @@ def extract_frame_features(y, sr, frame_size, hop_length, window='rectangular'):
         frame = y[start:start + frame_size]
         frame = apply_window(frame, window)
     
-        # Sprawdzamy, czy mamy ostatnią ramkę (może być krótsza)
         if start + frame_size > len(y):
-            frame = y[start:]  # pobieramy pozostałą część sygnału
+            frame = y[start:]  
 
         frequencies = get_frequencies(len(frame), sr)
         spectrum = fft(frame)[:len(frame) // 2]
 
-        # Obliczamy cechy dla tej ramki
         volume = compute_volume(spectrum)
         centroid = compute_frequency_centroid(frequencies, spectrum)
         bandwidth = compute_bandwidth(frequencies, spectrum)
@@ -152,7 +150,7 @@ def get_frequencies(N, sr):
 
 
 def plot_spectrogram(spectrogram, sr, frame_size, hop_length):
-    spectrogram = 20 * np.log10(spectrogram + 1e-6)  # Convert to dB
+    spectrogram = 20 * np.log10(spectrogram + 1e-6)  
     time_axis = np.arange(spectrogram.shape[0]) * hop_length / sr
     freq_axis = np.fft.fftfreq(frame_size, 1 / sr)[:frame_size // 2]
 
@@ -336,13 +334,13 @@ def plot_cepstrum(cepstrum, sr):
         marker=dict(color='red', size=8),
         hovertemplate=
             "<b>Quefrency:</b> %{x:.3f} s" + "<br>" +
-            "<b>Amplituda:</b> %{y:.3f}" + "<extra></extra>" +
-            f"<b>Pitch:</b> {pitch_freq:.2f} Hz" + "<extra></extra>"
+            "<b>Amplituda:</b> %{y:.3f}" + "<br>" +
+            f"<b>Pitch:</b> {pitch_freq:.3f} Hz" + "<extra></extra>"
     ))
 
     fig.update_layout(
         xaxis=dict(range=[min_quef, max_quef]),
-        yaxis=dict(range=[-0.1, np.max(cepstrum) * 1.1]),
+        yaxis=dict(range=[np.min(cepstrum[valid_range]) - 0.02, np.max(cepstrum[valid_range]) + 0.02]),
         xaxis_title="Quefrency (s)",
         yaxis_title="Amplituda",
         template="plotly_white"
