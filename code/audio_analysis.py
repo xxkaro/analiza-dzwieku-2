@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import librosa
 
 
-def frequency_spectrum(y, sr, window_type=None):
+def frequency_spectrum(y, sr, window_type='rectangular'):
     N = len(y)
     y_fft = fft(y)
     freqs = fftfreq(N, 1/sr)
@@ -30,29 +30,6 @@ def apply_window(frame, window_type):
     
     return frame * window
 
-def apply_window_to_frames(y, frame_size, hop_length, window_type='rectangular'):
-    y_windowed = np.zeros(len(y))
-
-    num_frames = (len(y) - frame_size) // hop_length + 1
-    
-    for i in range(num_frames):
-        start = i * hop_length
-        end = start + frame_size
-        
-        frame = y[start:end]
-        
-        windowed_frame = apply_window(frame, window_type)
-        
-        y_windowed[start:end] += windowed_frame
-
-    return y_windowed
-
-
-
-def generate_test_y(frequency=1000, sr=10000, duration=1):
-    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
-    y = np.sin(2 * np.pi * frequency * t)
-    return t, y
 
 def compute_volume(spectrum):
     return np.mean(np.square(np.abs(spectrum)))
@@ -109,19 +86,41 @@ def compute_spectral_crest(spectrum, frequencies, f_low=100, f_high=6000):
     power = np.square(np.abs(band))
     return np.max(power) / np.mean(power) if np.mean(power) > 0 else 0
 
+def compute_cepstrum(y, window='rectangular'):
+    frame = apply_window(y, window)
+    spectrum = np.fft.fft(frame)
+    log_spectrum = np.log(np.abs(spectrum) + 1e-10)
+    cepstrum = np.fft.ifft(log_spectrum).real
 
-def extract_frame_features(y, sr, frame_size, hop_length):
+    return cepstrum
+
+
+def compute_spectrogram(y, frame_size, hop_length, window='rectangular'):
+    n_frames = (len(y) - frame_size) // hop_length + 1
+    spectrogram = np.zeros((n_frames, frame_size // 2 + 1)) 
+
+    for i in range(n_frames):
+        start = i * hop_length
+        frame = y[start:start + frame_size]
+        frame = apply_window(frame, window)
+        spectrum = np.abs(np.fft.rfft(frame))  
+        spectrogram[i, :] = spectrum
+
+    return spectrogram
+
+def extract_frame_features(y, sr, frame_size, hop_length, window='rectangular'):
     frame_features = {
         'volume': [],
         'centroid': [],
         'bandwidth': [],
         'energy_ratios': [],
         'flatness': [],
-        'crest': []      
+        'crest': [],  
     }
 
     for start in range(0, len(y) - frame_size + 1, hop_length):
         frame = y[start:start + frame_size]
+        frame = apply_window(frame, window)
     
         # Sprawdzamy, czy mamy ostatnią ramkę (może być krótsza)
         if start + frame_size > len(y):
@@ -151,20 +150,6 @@ def extract_frame_features(y, sr, frame_size, hop_length):
 def get_frequencies(N, sr):
     return np.fft.fftfreq(N, d=1/sr)[:N // 2]
 
-
-def compute_spectrogram(y, frame_size, hop_length, window='rectangular'):
-
-    n_frames = (len(y) - frame_size) // hop_length + 1
-    spectrogram = np.zeros((n_frames, frame_size // 2 + 1)) 
-
-    for i in range(n_frames):
-        start = i * hop_length
-        frame = y[start:start + frame_size]
-        frame = apply_window(frame, window)
-        spectrum = np.abs(np.fft.rfft(frame))  
-        spectrogram[i, :] = spectrum
-
-    return spectrogram
 
 def plot_spectrogram(spectrogram, sr, frame_size, hop_length):
     spectrogram = 20 * np.log10(spectrogram + 1e-6)  # Convert to dB
@@ -297,12 +282,70 @@ def plot_ersb(time_axis, energy_ratios_list, mode, sr):
 
 def plot_spectrum(frequencies, spectrum):
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=frequencies, y=np.abs(spectrum), mode='lines', name='Widmo'))
+    fig.add_trace(go.Scatter(x=frequencies,
+                            y=np.abs(spectrum), 
+                            mode='lines', 
+                            name='Widmo',
+                            hovertemplate=
+                                "<b>Częstotliwość:</b> %{x:.3f} s" + "<br>" +
+                                "<b>Amplituda:</b> %{y:.3f}" + "<extra></extra>", 
+                            ))
     fig.update_layout(
         xaxis_title='Częstotliwość (Hz)',
         yaxis_title='Amplituda',
         hovermode="closest"
     )
+
+
+
     return fig
 
 
+
+def plot_cepstrum(cepstrum, sr):
+    quefrency = np.arange(0, len(cepstrum)) / sr 
+
+    min_pitch = 50
+    max_pitch = 400
+    min_quef = 1 / max_pitch
+    max_quef = 1 / min_pitch
+
+    valid_range = (quefrency > min_quef) & (quefrency < max_quef)
+    pitch_quef = quefrency[valid_range]
+    pitch_region = cepstrum[valid_range]
+
+    peak_idx = np.argmax(pitch_region)
+    peak_quef = pitch_quef[peak_idx]
+    pitch_freq = 1 / peak_quef 
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=quefrency, 
+                             y=cepstrum, 
+                             mode='lines', 
+                             name='Cepstrum',
+                             hovertemplate=
+                                "<b>Quefrency:</b> %{x:.3f} s" + "<br>" +
+                                "<b>Amplituda:</b> %{y:.3f}" + "<extra></extra>"
+                                ))
+    fig.add_trace(go.Scatter(
+        x=[peak_quef], y=[cepstrum[valid_range][peak_idx]],
+        mode='markers+text',
+        name=f'Pitch: {pitch_freq:.2f} Hz',
+        text=[f'{pitch_freq:.1f} Hz'],
+        textposition="top center",
+        marker=dict(color='red', size=8),
+        hovertemplate=
+            "<b>Quefrency:</b> %{x:.3f} s" + "<br>" +
+            "<b>Amplituda:</b> %{y:.3f}" + "<extra></extra>" +
+            f"<b>Pitch:</b> {pitch_freq:.2f} Hz" + "<extra></extra>"
+    ))
+
+    fig.update_layout(
+        xaxis=dict(range=[min_quef, max_quef]),
+        yaxis=dict(range=[-0.1, np.max(cepstrum) * 1.1]),
+        xaxis_title="Quefrency (s)",
+        yaxis_title="Amplituda",
+        template="plotly_white"
+    )
+
+    return fig

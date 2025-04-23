@@ -36,7 +36,7 @@ f, a = None, None
 if uploaded_file is not None:
     st.audio(uploaded_file)
     y, sr = librosa.load(uploaded_file, sr=None)
-    y = y - np.mean(y)
+    # y = y - np.mean(y)
 
     col1, col2 = st.columns([1, 3]) 
 
@@ -87,8 +87,7 @@ if uploaded_file is not None:
 
     with col2:
         st.write("### Wykres przebiegu czasowego audio:")
-        y = apply_window_to_frames(y, frame_size, hop_length, window_type)
-        frame_features = extract_frame_features(y, sr, frame_size, hop_length)  
+        frame_features = extract_frame_features(y, sr, frame_size, hop_length, window_type)  
         num_frames = len(frame_features['volume'])
 
         if analysis_type == "Cały sygnał":
@@ -141,7 +140,7 @@ if uploaded_file is not None:
         ('bandwidth', frame_features['bandwidth']),
         ('energy_ratios', frame_features['energy_ratios']),
         ('flatness', frame_features['flatness']),
-        ('crest', frame_features['crest'])    
+        ('crest', frame_features['crest']), 
     ]
 
     num_features = len(features)
@@ -164,24 +163,23 @@ if uploaded_file is not None:
     with col6:  
         st.plotly_chart(plot_ersb(frame_time_axis, features[3][1], "ramki", sr), use_container_width=True)
     
+    st.write("### Cepstrum:")
+    cepstrum = compute_cepstrum(y, window_type)
+    st.plotly_chart(plot_cepstrum(cepstrum, sr), use_container_width=True)
 
 
+    df = pd.DataFrame(frame_features)
 
-    # if analysis_type == 'Klip':
-    #     df = pd.DataFrame(frame_features)
-    # else: 
-    #     df = pd.DataFrame(frame_features)
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False)
+    csv_data = csv_buffer.getvalue()
 
-    # csv_buffer = io.StringIO()
-    # df.to_csv(csv_buffer, index=False)
-    # csv_data = csv_buffer.getvalue()
+    st.write("### Podgląd danych CSV:")
+    st.dataframe(df.head(5))
 
-    # st.write("### Podgląd danych CSV:")
-    # st.dataframe(df.head(5))
-
-#     st.download_button(
-#         label="📥 Pobierz CSV",
-#         data=csv_data,
-#         file_name="audio_analysis.csv",
-#         mime="text/csv"
-# )
+    st.download_button(
+        label="📥 Pobierz CSV",
+        data=csv_data,
+        file_name="audio_analysis.csv",
+        mime="text/csv"
+)
