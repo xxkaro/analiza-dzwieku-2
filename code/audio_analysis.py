@@ -266,16 +266,16 @@ def plot_ersb(time_axis, energy_ratios_list, mode, sr):
 
     fig.update_layout(
         title='ERSB (Energy Ratio Subbands)',
+        title_x=0.4,
         xaxis_title="Czas (s)",
         yaxis_title='Proporcja energii',
         yaxis=dict(range=[0, 1]),
         template='plotly_white',
-        legend=dict(x=0.01, y=0.99),
+        legend=dict(x=0.01, y=0.01),
         height=450
     )
 
     return fig
-
 
 
 def plot_spectrum(frequencies, spectrum):
